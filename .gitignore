@@ -17,7 +17,6 @@ Homestead.json
 Homestead.yaml
 .phpactor.json
 /node_modules
-/public/build
 /public/hot
 /public/storage
 /bootstrap/cache/*
