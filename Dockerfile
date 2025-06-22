@@ -1,39 +1,42 @@
 FROM php:8.2-apache
 
-# Instala extensões necessárias
+# 1) Instala extensões necessárias
 RUN apt-get update && apt-get install -y \
     libzip-dev zip unzip curl git && \
     docker-php-ext-install pdo pdo_mysql
 
-# Ativa o mod_rewrite do Apache
+# 2) Ativa o mod_rewrite do Apache
 RUN a2enmod rewrite
 
-# Define o DocumentRoot para a pasta 'public'
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
+# 3) Define o DocumentRoot para a pasta 'public'
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
+    /etc/apache2/sites-available/000-default.conf \
+  && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' \
+    /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
-# Atualiza config do Apache para refletir o novo DocumentRoot
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/000-default.conf \
-    && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+# 4) Instala o Composer
+RUN curl -sS https://getcomposer.org/installer | php -- \
+    --install-dir=/usr/local/bin --filename=composer
 
-# Instala o Composer diretamente do site oficial
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-
-# Copia o projeto para dentro da imagem
+# 5) Copia o projeto e define o diretório de trabalho
 COPY . /var/www/html
-
-# Cria pastas necessárias do Laravel e corrige permissões
-RUN mkdir -p storage/framework/{cache,sessions,testing,views} storage/logs bootstrap/cache \
-    && chown -R www-data:www-data /var/www/html \
-    && chmod -R 777 storage bootstrap/cache
-
-# Define diretório de trabalho
 WORKDIR /var/www/html
 
-# Cria ficheiro sqlite (se necessário)
+# 6) Garante que todas as pastas de cache/exceções existem
+RUN mkdir -p storage/framework/{cache,sessions,testing,views} \
+    storage/logs bootstrap/cache
+
+# 7) Ajusta permissões para o www-data
+RUN chown -R www-data:www-data /var/www/html \
+  && chmod -R 775 storage bootstrap/cache
+
+# 8) Cria o ficheiro SQLite
 RUN touch database/database.sqlite
 
-# Instala dependências Laravel
+# 9) Instala dependências do Laravel
 RUN composer install --no-dev --optimize-autoloader
 
-# Garante permissões corretas sempre que o container arranca (importante no Render)
-CMD chmod -R 777 storage bootstrap/cache && apache2-foreground
+# 10) No arranque, re-corrige permissões e inicia o Apache
+CMD chmod -R 775 storage bootstrap/cache && apache2-foreground
+
