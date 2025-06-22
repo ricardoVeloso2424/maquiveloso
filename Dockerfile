@@ -1,32 +1,29 @@
 FROM php:8.2-apache
 
-# Instalar dependências e extensões PHP necessárias
-RUN apt-get update && apt-get install -y \
-    git unzip curl libzip-dev zip \
-    && docker-php-ext-install pdo pdo_mysql zip
+# Instala extensões necessárias
+RUN docker-php-ext-install pdo pdo_mysql
 
-# Instalar Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# Ativa o mod_rewrite
+RUN a2enmod rewrite
 
-# Definir diretório de trabalho
+# Define a DocumentRoot correta
+ENV APACHE_DOCUMENT_ROOT /var/www/html/public
+
+# Atualiza a config do Apache
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf && \
+    sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+
+# Copia o código da aplicação
+COPY . /var/www/html
+
+# Define permissões corretas
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Define diretório de trabalho
 WORKDIR /var/www/html
 
-# Copiar todos os ficheiros do projeto
-COPY . .
+# Instala Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Instalar Node.js + dependências do Laravel
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs && \
-    npm install && npm run build
-
-# Instalar dependências PHP com Composer
+# Instala dependências Laravel
 RUN composer install --no-dev --optimize-autoloader
-
-# Corrigir permissões de pasta
-RUN chown -R www-data:www-data storage bootstrap/cache
-
-# Expor a porta 80 (HTTP)
-EXPOSE 80
-
-# Comando para migrar a DB e arrancar o servidor Apache
-CMD php artisan migrate --force && apache2-foreground
