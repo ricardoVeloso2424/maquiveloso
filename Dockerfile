@@ -21,10 +21,10 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 # Copia o projeto para dentro da imagem
 COPY . /var/www/html
 
-# Cria pastas necessárias do Laravel
-RUN mkdir -p storage/framework/{cache,data,sessions,testing,views} storage/logs bootstrap/cache \
+# Cria pastas necessárias do Laravel e corrige permissões
+RUN mkdir -p storage/framework/{cache,sessions,testing,views} storage/logs bootstrap/cache \
     && chown -R www-data:www-data /var/www/html \
-    && chmod -R 775 storage bootstrap/cache
+    && chmod -R 777 storage bootstrap/cache
 
 # Define diretório de trabalho
 WORKDIR /var/www/html
@@ -34,3 +34,6 @@ RUN touch database/database.sqlite
 
 # Instala dependências Laravel
 RUN composer install --no-dev --optimize-autoloader
+
+# Garante permissões corretas sempre que o container arranca (importante no Render)
+CMD chmod -R 777 storage bootstrap/cache && apache2-foreground
