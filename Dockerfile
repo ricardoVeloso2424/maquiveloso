@@ -29,4 +29,5 @@ RUN chown -R www-data:www-data /var/www/html \
 WORKDIR /var/www/html
 
 # Instala dependências Laravel
+RUN touch /var/www/html/database/database.sqlite
 RUN composer install --no-dev --optimize-autoloader
